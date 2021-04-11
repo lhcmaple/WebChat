@@ -2,55 +2,49 @@
 #define _THRDPOOL_H_
 
 #include <pthread.h>
-#include <unistd.h>
-#include <sys/epoll.h>
-#include <memory.h>
 
 #include "../util/lst.h"
-#include "../util/rbtree.h"
-#include "../util/types.h"
+#include "../util/debug.h"
+
+typedef void (*task_func)(void *);
 
 typedef struct {
     pthread_t pid;
-    int epfd;
-    int task_event[2]; //管道事件
-    int ntasks;
-    rb_node link;
-    rb_root rb_task;
+    lst link;
 } thrd_t;
 
 typedef struct {
-    int fd;
-    rb_node link;
-} task_t;
-
-typedef struct {
-    int fd;
+    task_func routine;
+    void *context;
     lst link;
-} taskfd_t;
+} task_t;
 
 class thrdpool {
 private:
-    rb_root rb_thrd;
-    pthread_mutex_t rb_mutex;
-    // pthread_key_t key;
 
+    lst thrdlst;
     lst tasklst;
-    pthread_mutex_t t_mutex;
 
-    int isterminate;
+    pthread_mutex_t th_mutex;
+    pthread_mutex_t tk_mutex;
+    pthread_cond_t  tk_cond;
+
+    bool isterminate;
 
 private:
     int init_lock();
     int destroy_lock();
+    void terminate();
 
 public:
     thrdpool();
-    int create_threads(size_t);
-    void terminate();
     ~thrdpool();
+
+    int create_threads(size_t);
+    void push_task(task_func routine,void *context);
 
     friend void *__routine(void *arg);
 };
 
 #endif
+
